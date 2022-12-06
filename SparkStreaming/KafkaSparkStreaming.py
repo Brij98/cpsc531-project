@@ -24,29 +24,26 @@ if __name__ == "__main__":
         .load()
     )
 
-    baseDataFrame = dataFrame.selectExpr("CAST(value as STRING)", "timestamp")
-    baseDataFrame.printSchema()
+    dataFrame.printSchema()
 
-    # applying the data schema
-    inputDataSchema = (
-        StructType()
-        .add("age", IntegerType())
-        .add("sex", BooleanType())
-        .add("cp", IntegerType())
-        .add("trestbps", IntegerType())
-        .add("chol", IntegerType())
-        .add("fbs", IntegerType())
-        .add("restecg", IntegerType())
-        .add("thalach", IntegerType())
-        .add("exang", IntegerType())
-        .add("oldpeak", FloatType())
-        .add("slope", IntegerType())
-        .add("ca", IntegerType())
-        .add("thal", IntegerType())
-        # .add("target", IntegerType())
-    )
+    inputDataSchema = StructType([
+        StructField("age", IntegerType(), True),
+        StructField("sex", IntegerType(), True),
+        StructField("cp", IntegerType(), True),
+        StructField("trestbps", IntegerType(), True),
+        StructField("chol", IntegerType(), True),
+        StructField("fbs", IntegerType(), True),
+        StructField("restecg", IntegerType(), True),
+        StructField("thalach", IntegerType(), True),
+        StructField("exang", IntegerType(), True),
+        StructField("oldpeak", FloatType(), True),
+        StructField("slope", IntegerType(), True),
+        StructField("ca", IntegerType(), True),
+        StructField("thal", IntegerType(), True),
+    ])
 
-    info_dataframe = baseDataFrame.select(
-        from_json(col("value"), inputDataSchema).alias("sample"), "timestamp"
-    )
-    info_df_fin = info_dataframe.select("sample.*", "timestamp")
+    clean_DataFrame = dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")\
+        .withColumn("value", to_json("value", inputDataSchema))\
+        .select("key", col('value.*'))
+
+    clean_DataFrame.printSchema()
