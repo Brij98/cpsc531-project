@@ -2,8 +2,9 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, BooleanType
 from pyspark.sql.functions import *
 
-KAFKA_TOPIC_NAME = "sampleTopic"
-KAFKA_BOOTSTRAP_SERVER = "127.0.0.1:9000"
+
+KAFKA_TOPIC_NAME = "Read_heart_data"
+KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
 
 if __name__ == "__main__":
 
