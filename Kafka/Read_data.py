@@ -31,7 +31,7 @@ def get_Read_Heart_data():
             heart_data_nested['slope'] = Heart_data_list[10]
             heart_data_nested['ca'] = Heart_data_list[11]
             heart_data_nested['thal'] = Heart_data_list[12]
-            heart_data_nested['angiographic_disease_status'] = Heart_data_list[13]
+            #heart_data_nested['angiographic_disease_status'] = Heart_data_list[13]
             heart_data[i] = heart_data_nested
             i += 1
 

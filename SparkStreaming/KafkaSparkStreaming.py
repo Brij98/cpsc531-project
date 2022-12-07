@@ -1,10 +1,16 @@
+import json
+
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, BooleanType
 from pyspark.sql.functions import *
+import pyspark.sql.functions as F
+import pyspark.sql.types as T
 
 
-KAFKA_TOPIC_NAME = "Read_heart_data"
+KAFKA_TOPIC_NAME = "New_topic_4"
 KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
+
+my_udf = F.udf(lambda x: x.decode('unicode-escape'),T.StringType())
 
 if __name__ == "__main__":
 
@@ -25,29 +31,38 @@ if __name__ == "__main__":
         .load()
     )
 
-    baseDataFrame = dataFrame.selectExpr("CAST(value as STRING)", "timestamp")
-    baseDataFrame.printSchema()
+    dataFrame.printSchema()
 
-    # applying the data schema
-    inputDataSchema = (
-        StructType()
-        .add("age", IntegerType())
-        .add("sex", BooleanType())
-        .add("cp", IntegerType())
-        .add("trestbps", IntegerType())
-        .add("chol", IntegerType())
-        .add("fbs", IntegerType())
-        .add("restecg", IntegerType())
-        .add("thalach", IntegerType())
-        .add("exang", IntegerType())
-        .add("oldpeak", FloatType())
-        .add("slope", IntegerType())
-        .add("ca", IntegerType())
-        .add("thal", IntegerType())
-        # .add("target", IntegerType())
-    )
+    #applying the data schema
+    inputDataSchema = StructType([
+        StructField("age", StringType(), False),
+        StructField("sex", StringType(), False),
+        StructField("cp", StringType(), False),
+        StructField("trestbps", StringType(), False),
+        StructField("chol", StringType(), False),
+        StructField("fbs", StringType(), False),
+        StructField("restecg", StringType(), False),
+        StructField("thalach", StringType(), False),
+        StructField("exang", StringType(), False),
+        StructField("oldpeak", StringType(), False),
+        StructField("slope", StringType(), False),
+        StructField("ca", StringType(), False),
+        StructField("thal", StringType(), False),
+    ])
 
-    info_dataframe = baseDataFrame.select(
-        from_json(col("value"), inputDataSchema).alias("sample"), "timestamp"
-    )
-    info_df_fin = info_dataframe.select("sample.*", "timestamp")
+    # clean_DataFrame = dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
+    #     .withColumn(my_udf("value"), inputDataSchema) \
+    #     .select("key", col('value.*'))
+
+    clean_DataFrame = dataFrame \
+        .select(from_json(my_udf(col("value")), inputDataSchema))
+
+    clean_DataFrame.printSchema()
+
+    posts_stream = clean_DataFrame.writeStream.trigger(processingTime='5 seconds') \
+        .outputMode('update') \
+        .option("truncate", "false") \
+        .format("console") \
+        .start()
+
+    posts_stream.awaitTermination()
