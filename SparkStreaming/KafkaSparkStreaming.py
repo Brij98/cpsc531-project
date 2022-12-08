@@ -1,16 +1,20 @@
 import json
 
+from pyspark.ml import PipelineModel
+from pyspark.ml.feature import VectorAssembler
+from pyspark.mllib.tree import RandomForestModel
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType, BooleanType
 from pyspark.sql.functions import *
 import pyspark.sql.functions as F
 import pyspark.sql.types as T
-
-
+from pyspark.sql.functions import col, round
+from pyspark import SparkContext
+sc = SparkContext("local", "First App")
 KAFKA_TOPIC_NAME = "New_topic_4"
 KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
 
-my_udf = F.udf(lambda x: x.decode('unicode-escape'),T.StringType())
+my_udf = F.udf(lambda x: x.decode('unicode-escape'))
 
 if __name__ == "__main__":
 
@@ -35,31 +39,57 @@ if __name__ == "__main__":
 
     #applying the data schema
     inputDataSchema = StructType([
-        StructField("age", StringType(), False),
-        StructField("sex", StringType(), False),
-        StructField("cp", StringType(), False),
-        StructField("trestbps", StringType(), False),
-        StructField("chol", StringType(), False),
-        StructField("fbs", StringType(), False),
-        StructField("restecg", StringType(), False),
-        StructField("thalach", StringType(), False),
-        StructField("exang", StringType(), False),
-        StructField("oldpeak", StringType(), False),
-        StructField("slope", StringType(), False),
-        StructField("ca", StringType(), False),
-        StructField("thal", StringType(), False),
+        StructField("age", IntegerType(), False),
+        StructField("sex", IntegerType(), False),
+        StructField("cp", IntegerType(), False),
+        StructField("trestbps", IntegerType(), False),
+        StructField("chol", IntegerType(), False),
+        StructField("fbs", IntegerType(), False),
+        StructField("restecg", IntegerType(), False),
+        StructField("thalach", IntegerType(), False),
+        StructField("exang", IntegerType(), False),
+        StructField("oldpeak", FloatType(), False),
+        StructField("slope", IntegerType(), False),
+        StructField("ca", IntegerType(), False),
+        StructField("thal", IntegerType(), False),
     ])
 
     # clean_DataFrame = dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
     #     .withColumn(my_udf("value"), inputDataSchema) \
     #     .select("key", col('value.*'))
 
-    clean_DataFrame = dataFrame \
-        .select(from_json(my_udf(col("value")), inputDataSchema))
+    clean_DataFrame = dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
+        .withColumn("value", F.from_json("value", inputDataSchema)) \
+        .select(F.col('value.*'))
+
+        #.select(from_json(my_udf(col("value")), inputDataSchema))
+
+    # clean_df = df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
+    #     .withColumn("value", F.from_json("value", schema_tweet)) \
+    #     .select("key", F.col('value.*'))
+
+    print(clean_DataFrame)
 
     clean_DataFrame.printSchema()
 
-    posts_stream = clean_DataFrame.writeStream.trigger(processingTime='5 seconds') \
+    required_features = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach',
+                         'exang', 'oldpeak', 'slope', 'ca', 'thal']
+
+    assembler = VectorAssembler(inputCols=required_features, outputCol='features')
+    transformed_data = assembler.transform(clean_DataFrame)
+    # transformed_data.show()
+
+    #
+    pipeline = PipelineModel.load("/Users/csuftitan/Repos/cpsc531-project/pySparkML/models/rfTrainedModel")
+    ## Fit the pipeline to new data
+    transformeddataset = pipeline.transform(transformed_data)
+
+    # model = CrossValidatorModel.load("/Users/csuftitan/Repos/cpsc531-project/pySparkML/models/rfTrainedModel")
+    # ## Score the data using the model
+    # scoreddataset = model.bestModel.transform(clean_DataFrame)
+
+
+    posts_stream = transformeddataset.writeStream.trigger(processingTime='5 seconds') \
         .outputMode('update') \
         .option("truncate", "false") \
         .format("console") \
