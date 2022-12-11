@@ -2,7 +2,10 @@
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/venv" />
+    </content>
+    <content url="file://$USER_HOME$/apache-cassandra-4.0.7" />
     <content url="file://$USER_HOME$/kafka_2.13-3.3.1" />
     <content url="file://$USER_HOME$/spark-3.3.1-bin-hadoop3">
       <sourceFolder url="file://$USER_HOME$/spark-3.3.1-bin-hadoop3/examples/src/main/java" isTestSource="false" />

@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from pyspark.ml import PipelineModel
 from pyspark.ml.feature import VectorAssembler
@@ -13,8 +14,6 @@ from pyspark import SparkContext
 sc = SparkContext("local", "First App")
 KAFKA_TOPIC_NAME = "New_topic_4"
 KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
-
-my_udf = F.udf(lambda x: x.decode('unicode-escape'))
 
 if __name__ == "__main__":
 
@@ -78,21 +77,42 @@ if __name__ == "__main__":
     assembler = VectorAssembler(inputCols=required_features, outputCol='features')
     transformed_data = assembler.transform(clean_DataFrame)
     # transformed_data.show()
+    # transformed_data.printSchema()
+
+
 
     #
     pipeline = PipelineModel.load("/Users/csuftitan/Repos/cpsc531-project/pySparkML/models/rfTrainedModel")
     ## Fit the pipeline to new data
     transformeddataset = pipeline.transform(transformed_data)
 
+    uuidUdf = udf(lambda: str(uuid.uuid4()), StringType())
+    df = transformeddataset.withColumn("id", uuidUdf())
+
     # model = CrossValidatorModel.load("/Users/csuftitan/Repos/cpsc531-project/pySparkML/models/rfTrainedModel")
     # ## Score the data using the model
     # scoreddataset = model.bestModel.transform(clean_DataFrame)
 
+    def writeToCassandra(writeDF, epochId):
+        writeDF.write \
+        .format("org.apache.spark.sql.cassandra") \
+        .mode('append') \
+        .options(table="heart_prediction_data", keyspace="cas") \
+        .save()
 
-    posts_stream = transformeddataset.writeStream.trigger(processingTime='5 seconds') \
-        .outputMode('update') \
-        .option("truncate", "false") \
-        .format("console") \
+    posts_stream = df \
+        .drop("features","rawPrediction","probability") \
+        .writeStream \
+        .option("spark.cassandra.connection.host", "localhost:9042") \
+        .foreachBatch(writeToCassandra) \
+        .outputMode("update") \
         .start()
 
+    #
+    # posts_stream = transformeddataset.writeStream.trigger(processingTime='5 seconds') \
+    #     .outputMode('update') \
+    #     .option("truncate", "false") \
+    #     .format("console") \
+    #     .start()
+    #
     posts_stream.awaitTermination()

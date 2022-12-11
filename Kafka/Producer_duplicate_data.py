@@ -11,7 +11,8 @@ KAFKA_BOOTSTRAP_SERVERS_CONS = 'localhost:9092'
 if __name__ == "__main__":
     print("Kafka Producer Application Started ... ")
 
-    producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS_CONS, value_serializer=lambda x: dumps(x).encode('utf-8'))
+    producer = KafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS_CONS,
+                             value_serializer=lambda x: dumps(x).encode('utf-8'))
 
 
     heart_data = None
