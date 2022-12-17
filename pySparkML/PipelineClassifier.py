@@ -7,6 +7,8 @@ from pyspark.sql import SparkSession
 
 
 def main():
+
+    # Creating Spark Connection
     spark = (
         SparkSession.builder.master("local[*]")
         .appName('RandomForestClassifier')
@@ -14,6 +16,7 @@ def main():
     )
     spark.sparkContext.setLogLevel("ERROR")
 
+    # Reading Heart Data
     new_df = spark.read.csv('heart.csv',
                             header=True, inferSchema=True)
 
@@ -27,6 +30,7 @@ def main():
     new_df.show()
     new_df.printSchema()
 
+    # Listing all the columns in a list
     required_features = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach',
                          'exang', 'oldpeak', 'slope', 'ca', 'thal']
 
@@ -40,8 +44,8 @@ def main():
 
     transformed_data.printSchema()
 
-    # Random Forest Classifier
 
+    # Random Forest Classifier
     random_forest = RandomForestClassifier(labelCol='target', featuresCol='features', maxDepth=7,
                                            numTrees=10)
     stages = [random_forest]
@@ -52,6 +56,7 @@ def main():
     # training the model
     model = pipeline.fit(training_data)
     #random_forest_mdl = random_forest.fit(training_data)
+
     # testing with the model
     random_forest_prd = model.transform(test_data)
     multi_evaluator = MulticlassClassificationEvaluator(labelCol='target', metricName='accuracy')
@@ -60,6 +65,7 @@ def main():
     # saving the model
     path = "./models/rfTrainedModel"
     model.save(path=path)
+
 
 
 if __name__ == "__main__":
