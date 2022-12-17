@@ -25,6 +25,7 @@ if __name__ == "__main__":
     )
     spark.sparkContext.setLogLevel("ERROR")
 
+
     # read data stream from kafka topic
     dataFrame = (
         spark.readStream.format("kafka")
@@ -54,27 +55,20 @@ if __name__ == "__main__":
         StructField("thal", IntegerType(), False),
     ])
 
-    # clean_DataFrame = dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
-    #     .withColumn(my_udf("value"), inputDataSchema) \
-    #     .select("key", col('value.*'))
-
+    # Extracting the value alone from the kafka data and applying the schema
     clean_DataFrame = dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
         .withColumn("value", F.from_json("value", inputDataSchema)) \
         .select(F.col('value.*'))
-
-        #.select(from_json(my_udf(col("value")), inputDataSchema))
-
-    # clean_df = df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
-    #     .withColumn("value", F.from_json("value", schema_tweet)) \
-    #     .select("key", F.col('value.*'))
 
     print(clean_DataFrame)
 
     clean_DataFrame.printSchema()
 
+    # Listing all the columns in a list
     required_features = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach',
                          'exang', 'oldpeak', 'slope', 'ca', 'thal']
 
+    # Adding the vector module to match the schema in the Machine Learning model
     assembler = VectorAssembler(inputCols=required_features, outputCol='features')
     transformed_data = assembler.transform(clean_DataFrame)
     # transformed_data.show()
@@ -82,18 +76,17 @@ if __name__ == "__main__":
 
 
 
-    #
+    # Loadin the Trained Meachine Learning Model
     pipeline = PipelineModel.load("/Users/csuftitan/Repos/cpsc531-project/pySparkML/models/rfTrainedModel")
-    ## Fit the pipeline to new data
+
+    # Getting the Predections of the data from kafka
     transformeddataset = pipeline.transform(transformed_data)
 
+    # Adding the uuid to work as primary key in cassandra
     uuidUdf = udf(lambda: str(uuid.uuid4()), StringType())
     df = transformeddataset.withColumn("id", uuidUdf())
 
-    # model = CrossValidatorModel.load("/Users/csuftitan/Repos/cpsc531-project/pySparkML/models/rfTrainedModel")
-    # ## Score the data using the model
-    # scoreddataset = model.bestModel.transform(clean_DataFrame)
-
+    # Writing the data to cassandra table 
     def writeToCassandra(writeDF, epochId):
         writeDF.write \
         .format("org.apache.spark.sql.cassandra") \
@@ -101,6 +94,7 @@ if __name__ == "__main__":
         .options(table="heart_prediction_data", keyspace="cas") \
         .save()
 
+    # Droping some of the vector columns and connecting to cassandra sever and calling writing function
     posts_stream = df \
         .drop("features","rawPrediction","probability") \
         .writeStream \
@@ -109,11 +103,5 @@ if __name__ == "__main__":
         .outputMode("update") \
         .start()
 
-    #
-    # posts_stream = transformeddataset.writeStream.trigger(processingTime='5 seconds') \
-    #     .outputMode('update') \
-    #     .option("truncate", "false") \
-    #     .format("console") \
-    #     .start()
-    #
+    # waiting till we terminata the section 
     posts_stream.awaitTermination()
